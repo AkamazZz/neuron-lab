@@ -1,0 +1,21 @@
+[package]
+name = "ccn_simulation_core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95.0"
+description = "Rust simulation core and native ABI for CCN Visualization"
+license = "MIT"
+
+[lib]
+name = "ccn_simulation_core"
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+rand = "0.9"
+rand_chacha = "0.9"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+approx = "0.5"
