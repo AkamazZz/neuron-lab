@@ -1,0 +1,17 @@
+# Rust build outputs
+rust/target/
+
+# Local agent/workflow files
+.codex/
+AGENTS.md
+agents/
+plans/
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+
+# Local environment files
+.env
+.env.*
