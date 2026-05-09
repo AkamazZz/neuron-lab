@@ -334,6 +334,13 @@ impl ExperimentRunner {
             merged.spikes.extend(frame.spikes);
             merged.statistics = frame.statistics;
         }
+        merged.statistics.batch_spikes = merged.spikes.len() as u32;
+        merged.statistics.active_neuron_count = merged
+            .spikes
+            .iter()
+            .map(|event| event.neuron_id)
+            .collect::<HashSet<_>>()
+            .len() as u32;
         Ok(merged)
     }
 

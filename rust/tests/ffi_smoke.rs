@@ -1,6 +1,7 @@
 use ccn_simulation_core::core::SimulationConfig;
 use ccn_simulation_core::experiments::pattern_recognition_preset;
 use ccn_simulation_core::ffi::*;
+use serde_json::Value;
 use std::slice;
 
 #[test]
@@ -55,16 +56,12 @@ fn raw_step_returns_empty_and_non_empty_frames() {
     let status = unsafe { ccn_create_simulation(config.as_ptr(), config.len(), &mut handle) };
     assert!(status.is_ok());
 
-    let mut empty = CcnStepFrame {
-        start_step: 0,
-        steps: 0,
-        event_count: 99,
-        events: std::ptr::null_mut(),
-    };
+    let mut empty = empty_frame();
     let status = unsafe { ccn_raw_step(handle, std::ptr::null(), 0, 1, false, &mut empty) };
     assert!(status.is_ok());
     assert_eq!(empty.event_count, 0);
     assert!(empty.events.is_null());
+    assert_eq!(empty.batch_spikes, 0);
     ccn_free_step_frame(empty);
 
     let input = serde_json::to_vec(&vec![serde_json::json!({
@@ -72,12 +69,7 @@ fn raw_step_returns_empty_and_non_empty_frames() {
         "current": 2.0
     })])
     .unwrap();
-    let mut non_empty = CcnStepFrame {
-        start_step: 0,
-        steps: 0,
-        event_count: 0,
-        events: std::ptr::null_mut(),
-    };
+    let mut non_empty = empty_frame();
     let status = unsafe {
         ccn_raw_step(
             handle,
@@ -91,7 +83,49 @@ fn raw_step_returns_empty_and_non_empty_frames() {
     assert!(status.is_ok());
     assert_eq!(non_empty.event_count, 1);
     assert!(!non_empty.events.is_null());
+    assert_eq!(non_empty.total_spikes, 1);
+    assert_eq!(non_empty.batch_spikes, 1);
+    assert_eq!(non_empty.active_neuron_count, 1);
+    assert_eq!(non_empty.average_weight, 0.0);
     ccn_free_step_frame(non_empty);
+    assert!(ccn_free_simulation(handle).is_ok());
+}
+
+#[test]
+fn raw_snapshots_fall_back_to_host_network_without_experiment() {
+    let config = serde_json::to_vec(&SimulationConfig {
+        neuron_count: 2,
+        connection_density: 0.0,
+        ..SimulationConfig::default()
+    })
+    .unwrap();
+    let mut handle = CcnSimulationHandle { id: 0 };
+    assert!(unsafe { ccn_create_simulation(config.as_ptr(), config.len(), &mut handle) }.is_ok());
+
+    let input = serde_json::to_vec(&vec![serde_json::json!({
+        "neuron_id": 0,
+        "current": 2.0
+    })])
+    .unwrap();
+    let mut frame = empty_frame();
+    assert!(
+        unsafe { ccn_raw_step(handle, input.as_ptr(), input.len(), 1, false, &mut frame) }.is_ok()
+    );
+    ccn_free_step_frame(frame);
+
+    let mut activity = CcnBuffer::empty();
+    assert!(ccn_activity_snapshot(handle, &mut activity).is_ok());
+    let activity_json = buffer_to_json(activity);
+    ccn_free_buffer(activity);
+    assert_eq!(activity_json["step"], 1);
+    assert_eq!(activity_json["spiked"][0], true);
+
+    let mut weights = CcnBuffer::empty();
+    assert!(ccn_weight_snapshot(handle, &mut weights).is_ok());
+    let weight_json = buffer_to_json(weights);
+    ccn_free_buffer(weights);
+    assert_eq!(weight_json["step"], 1);
+
     assert!(ccn_free_simulation(handle).is_ok());
 }
 
@@ -119,12 +153,7 @@ fn experiment_lifecycle_result_and_snapshots_are_buffers() {
     assert!(progress.total_duration > 0);
 
     loop {
-        let mut frame = CcnStepFrame {
-            start_step: 0,
-            steps: 0,
-            event_count: 0,
-            events: std::ptr::null_mut(),
-        };
+        let mut frame = empty_frame();
         assert!(ccn_step_experiment(handle, 4, &mut frame).is_ok());
         ccn_free_step_frame(frame);
         assert!(ccn_experiment_state(handle, &mut state).is_ok());
@@ -149,6 +178,81 @@ fn experiment_lifecycle_result_and_snapshots_are_buffers() {
     ccn_free_buffer(weights);
 
     assert!(ccn_free_simulation(handle).is_ok());
+}
+
+#[test]
+fn experiment_step_updates_snapshots_from_runner_network() {
+    let config = serde_json::to_vec(&SimulationConfig::default()).unwrap();
+    let mut handle = CcnSimulationHandle { id: 0 };
+    assert!(unsafe { ccn_create_simulation(config.as_ptr(), config.len(), &mut handle) }.is_ok());
+
+    let experiment = serde_json::to_vec(&pattern_recognition_preset(9)).unwrap();
+    assert!(unsafe { ccn_load_experiment(handle, experiment.as_ptr(), experiment.len()) }.is_ok());
+
+    let mut frame = empty_frame();
+    assert!(ccn_step_experiment(handle, 3, &mut frame).is_ok());
+    assert_eq!(frame.steps, 3);
+    ccn_free_step_frame(frame);
+
+    let mut activity = CcnBuffer::empty();
+    assert!(ccn_activity_snapshot(handle, &mut activity).is_ok());
+    let activity_json = buffer_to_json(activity);
+    ccn_free_buffer(activity);
+    assert_eq!(activity_json["step"], 3);
+    assert!(
+        activity_json["recent_firing_rates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_f64().unwrap() > 0.0)
+    );
+
+    let mut weights = CcnBuffer::empty();
+    assert!(ccn_weight_snapshot(handle, &mut weights).is_ok());
+    let weight_json = buffer_to_json(weights);
+    ccn_free_buffer(weights);
+    assert_eq!(weight_json["step"], 3);
+    assert!(weight_json["average_weight"].as_f64().unwrap() > 0.0);
+
+    assert!(ccn_free_simulation(handle).is_ok());
+}
+
+#[test]
+fn experiment_step_frame_exposes_rust_statistics() {
+    let config = serde_json::to_vec(&SimulationConfig::default()).unwrap();
+    let mut handle = CcnSimulationHandle { id: 0 };
+    assert!(unsafe { ccn_create_simulation(config.as_ptr(), config.len(), &mut handle) }.is_ok());
+
+    let experiment = serde_json::to_vec(&pattern_recognition_preset(11)).unwrap();
+    assert!(unsafe { ccn_load_experiment(handle, experiment.as_ptr(), experiment.len()) }.is_ok());
+
+    let mut frame = empty_frame();
+    assert!(ccn_step_experiment(handle, 4, &mut frame).is_ok());
+    assert!(frame.event_count > 0);
+    assert!(frame.total_spikes > 0);
+    assert_eq!(frame.batch_spikes as usize, frame.event_count);
+    assert!(frame.active_neuron_count > 0);
+    assert!(frame.average_weight > 0.0);
+    ccn_free_step_frame(frame);
+
+    assert!(ccn_free_simulation(handle).is_ok());
+}
+
+fn empty_frame() -> CcnStepFrame {
+    CcnStepFrame {
+        start_step: 0,
+        steps: 0,
+        event_count: 0,
+        events: std::ptr::null_mut(),
+        total_spikes: 0,
+        batch_spikes: 0,
+        active_neuron_count: 0,
+        average_weight: 0.0,
+    }
+}
+
+fn buffer_to_json(buffer: CcnBuffer) -> Value {
+    serde_json::from_str(&buffer_to_string(buffer)).unwrap()
 }
 
 fn buffer_to_string(buffer: CcnBuffer) -> String {

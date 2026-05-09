@@ -49,12 +49,16 @@ pub struct CcnSpikeEvent {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CcnStepFrame {
     pub start_step: u64,
     pub steps: u32,
     pub event_count: usize,
     pub events: *mut CcnSpikeEvent,
+    pub total_spikes: u64,
+    pub batch_spikes: u32,
+    pub active_neuron_count: u32,
+    pub average_weight: f32,
 }
 
 #[repr(C)]
@@ -337,7 +341,10 @@ pub extern "C" fn ccn_activity_snapshot(
 ) -> CcnStatus {
     catch_status(|| {
         with_host(handle, |host| {
-            write_out(out_buffer, buffer_json(&host.network.activity_snapshot())?)?;
+            write_out(
+                out_buffer,
+                buffer_json(&active_network(host).activity_snapshot())?,
+            )?;
             Ok(())
         })
     })
@@ -350,7 +357,10 @@ pub extern "C" fn ccn_weight_snapshot(
 ) -> CcnStatus {
     catch_status(|| {
         with_host(handle, |host| {
-            write_out(out_buffer, buffer_json(&host.network.weight_snapshot())?)?;
+            write_out(
+                out_buffer,
+                buffer_json(&active_network(host).weight_snapshot())?,
+            )?;
             Ok(())
         })
     })
@@ -387,6 +397,10 @@ fn with_host<T>(
         .get_mut(&handle.id)
         .ok_or_else(StatusError::invalid_handle)?;
     f(host)
+}
+
+fn active_network(host: &SimulationHost) -> &Network {
+    host.runner.network.as_ref().unwrap_or(&host.network)
 }
 
 fn catch_status(f: impl FnOnce() -> Result<(), StatusError>) -> CcnStatus {
@@ -507,6 +521,10 @@ fn frame_to_abi(frame: StepFrame) -> CcnStepFrame {
         steps: frame.steps,
         event_count,
         events: events_ptr,
+        total_spikes: frame.statistics.total_spikes,
+        batch_spikes: frame.statistics.batch_spikes,
+        active_neuron_count: frame.statistics.active_neuron_count,
+        average_weight: frame.statistics.average_weight,
     }
 }
 
