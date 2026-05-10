@@ -11,14 +11,15 @@ class Bootstrap {
 
   static Future<void> run() async {
     await runZonedGuarded(() async {
-      if (kDebugMode) {
-        MarionetteBinding.ensureInitialized();
-      } else {
-        WidgetsFlutterBinding.ensureInitialized();
-      }
+      final binding = kDebugMode
+          ? MarionetteBinding.ensureInitialized()
+          : WidgetsFlutterBinding.ensureInitialized();
+      binding.deferFirstFrame();
 
       final runner = await AppRunner.init();
+
       runApp(CcnVisualizationApp(runner: runner));
+      binding.allowFirstFrame();
     }, _onError);
   }
 
