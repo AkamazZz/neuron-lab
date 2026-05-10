@@ -226,6 +226,71 @@ void main() {
     },
   );
 
+  testWidgets('weight delta overlay painter renders selected labels', (
+    tester,
+  ) async {
+    const frame = VisualNetworkFrame(
+      neurons: [
+        VisualNeuron(
+          id: 0,
+          type: VisualNeuronType.excitatory,
+          x: 0.35,
+          y: 0.45,
+          depth: 0.4,
+          activity: 0.9,
+          spiked: true,
+          recentFiringRate: 0.7,
+        ),
+        VisualNeuron(
+          id: 1,
+          type: VisualNeuronType.inhibitory,
+          x: 0.68,
+          y: 0.58,
+          depth: 0.7,
+          activity: 0.3,
+          spiked: false,
+          recentFiringRate: 0.2,
+        ),
+      ],
+      synapses: [
+        VisualSynapse(
+          source: 0,
+          target: 1,
+          weight: 0.7,
+          inhibitory: false,
+          signalActivity: 1,
+          weightChange: 0.3,
+        ),
+      ],
+      step: 3,
+      phaseLabel: 'Learning',
+    );
+
+    final renderData = _renderData(
+      frame: frame,
+      size: const Size(240, 160),
+      selectedNeuronId: 0,
+      showWeightDeltaOverlay: true,
+      baselineWeights: const {'0:1': 0.4},
+    );
+
+    expect(renderData.weightDeltas.single.label, '0.40 -> 0.70 (+0.30)');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 240,
+          height: 160,
+          child: CustomPaint(
+            painter: ContinuousNetworkPainter(renderData: renderData),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'painters render empty, sparse, and dense data without layout changes',
     (tester) async {
@@ -373,6 +438,8 @@ ContinuousNetworkRenderData _renderData({
   required VisualNetworkFrame frame,
   required Size size,
   int? selectedNeuronId,
+  bool showWeightDeltaOverlay = false,
+  Map<String, double> baselineWeights = const <String, double>{},
 }) {
   const builder = ContinuousNetworkRenderDataBuilder(
     pathClassifier: SelectedPathClassifier(),
@@ -382,5 +449,7 @@ ContinuousNetworkRenderData _renderData({
     size: size,
     camera: NeuralFieldCamera.defaults,
     selectedNeuronId: selectedNeuronId,
+    showWeightDeltaOverlay: showWeightDeltaOverlay,
+    baselineWeights: baselineWeights,
   );
 }

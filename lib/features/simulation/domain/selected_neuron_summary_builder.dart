@@ -1,6 +1,9 @@
 import '../../../core/models/experiment_definition.dart';
 import '../../../core/models/network_visualization.dart';
+import '../../../core/models/step_frame.dart';
+import 'challenge_replay_comparison.dart';
 import 'experiment_phase_interpreter.dart';
+import 'spike_timing_explanation.dart';
 
 class SelectedNeuronSummary {
   const SelectedNeuronSummary({
@@ -10,6 +13,8 @@ class SelectedNeuronSummary {
     required this.activePaths,
     required this.changedPaths,
     required this.phaseExplanation,
+    required this.timingExplanations,
+    required this.challengeReplayComparison,
     required this.variantComparisons,
   });
 
@@ -19,6 +24,8 @@ class SelectedNeuronSummary {
   final List<VisualSynapse> activePaths;
   final List<VisualSynapse> changedPaths;
   final String phaseExplanation;
+  final List<SpikeTimingExplanation> timingExplanations;
+  final ChallengeReplayComparison challengeReplayComparison;
   final List<SelectedNeuronVariantComparison> variantComparisons;
 }
 
@@ -47,9 +54,14 @@ class SelectedNeuronVariantComparison {
 class SelectedNeuronSummaryBuilder {
   const SelectedNeuronSummaryBuilder({
     this.phaseInterpreter = const ExperimentPhaseInterpreter(),
+    this.timingExplanationBuilder = const SpikeTimingExplanationBuilder(),
+    this.challengeReplayComparisonBuilder =
+        const ChallengeReplayComparisonBuilder(),
   });
 
   final ExperimentPhaseInterpreter phaseInterpreter;
+  final SpikeTimingExplanationBuilder timingExplanationBuilder;
+  final ChallengeReplayComparisonBuilder challengeReplayComparisonBuilder;
 
   SelectedNeuronSummary? build({
     required int? selectedNeuronId,
@@ -57,6 +69,7 @@ class SelectedNeuronSummaryBuilder {
     required ExperimentDefinition experiment,
     required List<VariantSnapshot> variants,
     required Map<String, double> baselineWeights,
+    List<SpikeEvent> recentSpikes = const <SpikeEvent>[],
   }) {
     if (selectedNeuronId == null) {
       return null;
@@ -99,12 +112,43 @@ class SelectedNeuronSummaryBuilder {
         changedPaths: changed,
         activePaths: active,
       ),
+      timingExplanations: _timingExplanations(
+        changedPaths: changed,
+        activePaths: active,
+        recentSpikes: recentSpikes,
+      ),
+      challengeReplayComparison: challengeReplayComparisonBuilder.build(
+        selectedNeuronId: selectedNeuronId,
+        selectedPaths: changed.isNotEmpty ? changed : outgoing,
+        variants: variants,
+      ),
       variantComparisons: _variantComparisons(
         selectedNeuronId: selectedNeuronId,
         experiment: experiment,
         variants: variants,
         baselineWeights: baselineWeights,
       ),
+    );
+  }
+
+  List<SpikeTimingExplanation> _timingExplanations({
+    required List<VisualSynapse> changedPaths,
+    required List<VisualSynapse> activePaths,
+    required List<SpikeEvent> recentSpikes,
+  }) {
+    final candidates = <String, VisualSynapse>{};
+    for (final synapse in changedPaths.followedBy(activePaths)) {
+      candidates['${synapse.source}:${synapse.target}'] = synapse;
+    }
+    return List<SpikeTimingExplanation>.unmodifiable(
+      candidates.values
+          .take(4)
+          .map(
+            (synapse) => timingExplanationBuilder.build(
+              synapse: synapse,
+              recentSpikes: recentSpikes,
+            ),
+          ),
     );
   }
 

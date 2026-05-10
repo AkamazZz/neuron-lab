@@ -7,6 +7,7 @@ import '../../../core/models/step_frame.dart';
 import '../controller/rolling_history.dart';
 import '../controller/run_state.dart';
 import '../controller/simulation_state.dart';
+import 'signal_trace_story.dart';
 import 'variant_snapshot_tracker.dart';
 
 class SimulationRunLifecycle {
@@ -48,6 +49,9 @@ class SimulationRunLifecycle {
       clearInspectedVariant: true,
       camera: NeuralFieldCamera.defaults,
       clearSelectedNeuron: true,
+      tracePlayback: const SignalTracePlayback(),
+      showWeightDeltaOverlay: false,
+      showChallengeReplayComparison: false,
       metrics: const LiveMetrics(),
       result: null,
       clearResult: true,
@@ -84,6 +88,9 @@ class SimulationRunLifecycle {
       clearInspectedVariant: true,
       camera: NeuralFieldCamera.defaults,
       clearSelectedNeuron: true,
+      tracePlayback: const SignalTracePlayback(),
+      showWeightDeltaOverlay: false,
+      showChallengeReplayComparison: false,
       metrics: const LiveMetrics(),
       result: null,
       clearResult: true,
@@ -112,6 +119,9 @@ class SimulationRunLifecycle {
       clearInspectedVariant: true,
       camera: NeuralFieldCamera.defaults,
       clearSelectedNeuron: true,
+      tracePlayback: const SignalTracePlayback(),
+      showWeightDeltaOverlay: false,
+      showChallengeReplayComparison: false,
       metrics: const LiveMetrics(),
       result: null,
       clearResult: true,

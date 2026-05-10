@@ -5,6 +5,7 @@ import '../../../core/models/phase.dart';
 import '../../../core/models/preset_result.dart';
 import '../../../core/models/snapshots.dart';
 import '../../../core/models/step_frame.dart';
+import '../domain/signal_trace_story.dart';
 import 'run_state.dart';
 
 class SimulationState {
@@ -23,6 +24,11 @@ class SimulationState {
     this.inspectedVariantIndex,
     this.camera = NeuralFieldCamera.defaults,
     this.selectedNeuronId,
+    this.tracePlayback = const SignalTracePlayback(),
+    this.showWeightDeltaOverlay = false,
+    this.showChallengeReplayComparison = false,
+    this.narrationEnabled = false,
+    this.narrationDismissed = false,
     this.stepsPerTick = 6,
     this.metrics = const LiveMetrics(),
     this.result,
@@ -43,6 +49,11 @@ class SimulationState {
   final int? inspectedVariantIndex;
   final NeuralFieldCamera camera;
   final int? selectedNeuronId;
+  final SignalTracePlayback tracePlayback;
+  final bool showWeightDeltaOverlay;
+  final bool showChallengeReplayComparison;
+  final bool narrationEnabled;
+  final bool narrationDismissed;
   final int stepsPerTick;
   final LiveMetrics metrics;
   final PresetResult? result;
@@ -74,6 +85,11 @@ class SimulationState {
     NeuralFieldCamera? camera,
     int? selectedNeuronId,
     bool clearSelectedNeuron = false,
+    SignalTracePlayback? tracePlayback,
+    bool? showWeightDeltaOverlay,
+    bool? showChallengeReplayComparison,
+    bool? narrationEnabled,
+    bool? narrationDismissed,
     int? stepsPerTick,
     LiveMetrics? metrics,
     PresetResult? result,
@@ -100,6 +116,13 @@ class SimulationState {
       selectedNeuronId: clearSelectedNeuron
           ? null
           : selectedNeuronId ?? this.selectedNeuronId,
+      tracePlayback: tracePlayback ?? this.tracePlayback,
+      showWeightDeltaOverlay:
+          showWeightDeltaOverlay ?? this.showWeightDeltaOverlay,
+      showChallengeReplayComparison:
+          showChallengeReplayComparison ?? this.showChallengeReplayComparison,
+      narrationEnabled: narrationEnabled ?? this.narrationEnabled,
+      narrationDismissed: narrationDismissed ?? this.narrationDismissed,
       stepsPerTick: stepsPerTick ?? this.stepsPerTick,
       metrics: metrics ?? this.metrics,
       result: clearResult ? null : result ?? this.result,

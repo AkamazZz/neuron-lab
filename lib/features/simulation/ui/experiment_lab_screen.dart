@@ -8,9 +8,13 @@ import '../controller/run_state.dart';
 import '../controller/simulation_controller.dart';
 import '../controller/simulation_state.dart';
 import '../domain/continuous_network_render_data.dart';
+import '../domain/challenge_replay_comparison.dart';
 import '../domain/experiment_phase_interpreter.dart';
+import '../domain/experiment_narration.dart';
 import '../domain/selected_neuron_summary_builder.dart';
+import '../domain/signal_trace_story.dart';
 import '../domain/simulation_interaction_controller.dart';
+import '../domain/spike_timing_explanation.dart';
 import '../domain/visualization_projection.dart';
 import '../painters/activity_heatmap_painter.dart';
 import '../painters/continuous_network_painter.dart';
@@ -29,8 +33,10 @@ class ExperimentLabScreen extends StatefulWidget {
   State<ExperimentLabScreen> createState() => _ExperimentLabScreenState();
 }
 
-class _ExperimentLabScreenState extends State<ExperimentLabScreen> {
+class _ExperimentLabScreenState extends State<ExperimentLabScreen>
+    with SingleTickerProviderStateMixin {
   Timer? _timer;
+  int _traceTick = 0;
 
   @override
   void didChangeDependencies() {
@@ -38,6 +44,15 @@ class _ExperimentLabScreenState extends State<ExperimentLabScreen> {
     _timer ??= Timer.periodic(const Duration(milliseconds: 80), (_) {
       final controller = SimulationScope.of(context);
       controller.stepTick(maxSteps: controller.state.stepsPerTick);
+      final trace = controller.state.tracePlayback;
+      if (trace.playing) {
+        _traceTick += 1;
+        final threshold = (8 / trace.speed).round().clamp(2, 16);
+        if (_traceTick >= threshold) {
+          _traceTick = 0;
+          controller.stepTraceForward();
+        }
+      }
     });
   }
 
@@ -84,6 +99,7 @@ class _LabContent extends StatelessWidget {
   static const _projector = VisualNetworkProjector();
   static const _phaseInterpreter = ExperimentPhaseInterpreter();
   static const _summaryBuilder = SelectedNeuronSummaryBuilder();
+  static const _narrationBuilder = ExperimentNarrationBuilder();
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +124,12 @@ class _LabContent extends StatelessWidget {
       experiment: experiment,
       variants: state.variantSnapshots,
       baselineWeights: state.baselineWeights,
+      recentSpikes: state.rasterHistory,
+    );
+    final narration = _narrationBuilder.build(
+      phaseLabel: phaseLabel,
+      metrics: inspected?.metrics ?? state.metrics,
+      selectedSummary: selectedSummary,
     );
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -131,10 +153,17 @@ class _LabContent extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 16),
+        if (state.narrationEnabled && !state.narrationDismissed) ...[
+          _NarrationPanel(checkpoint: narration),
+          const SizedBox(height: 12),
+        ],
         _PrimaryNetworkSurface(frame: networkFrame, state: state),
         if (selectedSummary != null) ...[
           const SizedBox(height: 12),
-          _SelectedNeuronInspector(summary: selectedSummary),
+          _SelectedNeuronInspector(
+            summary: selectedSummary,
+            tracePlayback: state.tracePlayback,
+          ),
         ],
         const SizedBox(height: 14),
         _VariantFlowView(state: state),
@@ -235,6 +264,50 @@ class _PrimaryNetworkSurface extends StatefulWidget {
   State<_PrimaryNetworkSurface> createState() => _PrimaryNetworkSurfaceState();
 }
 
+class _NarrationPanel extends StatelessWidget {
+  const _NarrationPanel({required this.checkpoint});
+
+  final NarrationCheckpoint checkpoint;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = SimulationScope.of(context);
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.notes, color: theme.colorScheme.onPrimaryContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                checkpoint.message,
+                key: const ValueKey('narration-message'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+            IconButton(
+              key: const ValueKey('narration-dismiss-button'),
+              tooltip: 'Hide narration',
+              onPressed: controller.dismissNarration,
+              icon: const Icon(Icons.close),
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PrimaryNetworkSurfaceState extends State<_PrimaryNetworkSurface> {
   static const _renderDataBuilder = ContinuousNetworkRenderDataBuilder();
   CameraGestureAnchor? _gestureAnchor;
@@ -264,6 +337,9 @@ class _PrimaryNetworkSurfaceState extends State<_PrimaryNetworkSurface> {
                 size: size,
                 camera: widget.state.camera,
                 selectedNeuronId: widget.state.selectedNeuronId,
+                activeTraceSegment: widget.state.tracePlayback.activeSegment,
+                showWeightDeltaOverlay: widget.state.showWeightDeltaOverlay,
+                baselineWeights: widget.state.baselineWeights,
               );
               return Stack(
                 children: [
@@ -382,13 +458,18 @@ class _PrimaryNetworkSurfaceState extends State<_PrimaryNetworkSurface> {
 }
 
 class _SelectedNeuronInspector extends StatelessWidget {
-  const _SelectedNeuronInspector({required this.summary});
+  const _SelectedNeuronInspector({
+    required this.summary,
+    required this.tracePlayback,
+  });
 
   final SelectedNeuronSummary summary;
+  final SignalTracePlayback tracePlayback;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final controller = SimulationScope.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -433,6 +514,29 @@ class _SelectedNeuronInspector extends StatelessWidget {
             const SizedBox(height: 12),
             Text(summary.phaseExplanation),
             const SizedBox(height: 12),
+            _TraceControls(
+              playback: tracePlayback,
+              showWeightDeltaOverlay: controller.state.showWeightDeltaOverlay,
+              showChallengeReplayComparison:
+                  controller.state.showChallengeReplayComparison,
+              onActivate: controller.activateTraceMode,
+              onPlay: controller.playTrace,
+              onPause: controller.pauseTrace,
+              onStep: controller.stepTraceForward,
+              onReset: controller.resetTrace,
+              onSpeedChanged: controller.setTraceSpeed,
+              onWeightDeltaOverlayChanged:
+                  controller.setWeightDeltaOverlayVisible,
+              onChallengeReplayComparisonChanged:
+                  controller.setChallengeReplayComparisonVisible,
+            ),
+            if (controller.state.showChallengeReplayComparison) ...[
+              const SizedBox(height: 10),
+              _ChallengeReplayView(
+                comparison: summary.challengeReplayComparison,
+              ),
+            ],
+            const SizedBox(height: 12),
             _PathSummary(title: 'Incoming signals', paths: summary.incoming),
             const SizedBox(height: 10),
             _PathSummary(title: 'Outgoing targets', paths: summary.outgoing),
@@ -442,6 +546,8 @@ class _SelectedNeuronInspector extends StatelessWidget {
               paths: summary.changedPaths,
               empty: 'No attached path changed beyond the display threshold.',
             ),
+            const SizedBox(height: 10),
+            _SpikeTimingSummary(explanations: summary.timingExplanations),
             const SizedBox(height: 12),
             Text('Phase comparison', style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
@@ -469,6 +575,146 @@ class _SelectedNeuronInspector extends StatelessWidget {
   }
 }
 
+class _SpikeTimingSummary extends StatelessWidget {
+  const _SpikeTimingSummary({required this.explanations});
+
+  final List<SpikeTimingExplanation> explanations;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Spike timing', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 4),
+        if (explanations.isEmpty)
+          const Text(
+            'Detailed timing evidence is unavailable for the selected paths.',
+          )
+        else
+          for (final explanation in explanations.take(3))
+            Text(explanation.message),
+      ],
+    );
+  }
+}
+
+class _TraceControls extends StatelessWidget {
+  const _TraceControls({
+    required this.playback,
+    required this.showWeightDeltaOverlay,
+    required this.showChallengeReplayComparison,
+    required this.onActivate,
+    required this.onPlay,
+    required this.onPause,
+    required this.onStep,
+    required this.onReset,
+    required this.onSpeedChanged,
+    required this.onWeightDeltaOverlayChanged,
+    required this.onChallengeReplayComparisonChanged,
+  });
+
+  final SignalTracePlayback playback;
+  final bool showWeightDeltaOverlay;
+  final bool showChallengeReplayComparison;
+  final VoidCallback onActivate;
+  final VoidCallback onPlay;
+  final VoidCallback onPause;
+  final VoidCallback onStep;
+  final VoidCallback onReset;
+  final ValueChanged<double> onSpeedChanged;
+  final ValueChanged<bool> onWeightDeltaOverlayChanged;
+  final ValueChanged<bool> onChallengeReplayComparisonChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final story = playback.story;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text('Signal trace', style: theme.textTheme.titleSmall),
+            ),
+            Switch(
+              key: const ValueKey('weight-delta-overlay-switch'),
+              value: showWeightDeltaOverlay,
+              onChanged: onWeightDeltaOverlayChanged,
+            ),
+            const Text('Weight deltas'),
+            const SizedBox(width: 12),
+            Switch(
+              key: const ValueKey('challenge-replay-switch'),
+              value: showChallengeReplayComparison,
+              onChanged: onChallengeReplayComparisonChanged,
+            ),
+            const Text('Replay'),
+            const SizedBox(width: 12),
+            FilledButton.icon(
+              key: const ValueKey('trace-activate-button'),
+              onPressed: onActivate,
+              icon: const Icon(Icons.route),
+              label: Text(playback.active ? 'Rebuild trace' : 'Trace'),
+            ),
+          ],
+        ),
+        if (story != null) ...[
+          const SizedBox(height: 8),
+          Text(story.explanation),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              IconButton.filledTonal(
+                key: const ValueKey('trace-play-pause-button'),
+                tooltip: playback.playing ? 'Pause trace' : 'Play trace',
+                onPressed: story.playbackLength > 1
+                    ? (playback.playing ? onPause : onPlay)
+                    : null,
+                icon: Icon(playback.playing ? Icons.pause : Icons.play_arrow),
+              ),
+              IconButton(
+                key: const ValueKey('trace-step-button'),
+                tooltip: 'Step trace',
+                onPressed: story.playbackLength > 1 ? onStep : null,
+                icon: const Icon(Icons.skip_next),
+              ),
+              IconButton(
+                key: const ValueKey('trace-reset-button'),
+                tooltip: 'Reset trace',
+                onPressed: onReset,
+                icon: const Icon(Icons.restart_alt),
+              ),
+              SizedBox(
+                width: 180,
+                child: Slider(
+                  key: const ValueKey('trace-speed-slider'),
+                  min: 0.5,
+                  max: 3.0,
+                  divisions: 5,
+                  value: playback.speed,
+                  label: '${playback.speed.toStringAsFixed(1)}x',
+                  onChanged: onSpeedChanged,
+                ),
+              ),
+              Chip(
+                label: Text(
+                  'Step ${story.playbackLength == 0 ? 0 : playback.cursor + 1}/${story.playbackLength}',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _MetricChip extends StatelessWidget {
   const _MetricChip({required this.label, required this.value});
 
@@ -478,6 +724,66 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(label: Text('$label: $value'));
+  }
+}
+
+class _ChallengeReplayView extends StatelessWidget {
+  const _ChallengeReplayView({required this.comparison});
+
+  final ChallengeReplayComparison comparison;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Challenge replay', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 6),
+            Text(comparison.explanation),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  label: Text(
+                    '${comparison.baselineLabel}: ${comparison.baselineActivity.toStringAsFixed(2)}',
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    '${comparison.challengeLabel}: ${comparison.challengeActivity.toStringAsFixed(2)}',
+                  ),
+                ),
+                Chip(label: Text(_outcomeLabel(comparison.outcome))),
+              ],
+            ),
+            if (comparison.paths.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              for (final path in comparison.paths) Text(path.label),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _outcomeLabel(ChallengeReplayOutcome outcome) {
+    return switch (outcome) {
+      ChallengeReplayOutcome.reused => 'Reused',
+      ChallengeReplayOutcome.partiallyReused => 'Partial reuse',
+      ChallengeReplayOutcome.notReused => 'Not reused',
+      ChallengeReplayOutcome.unavailable => 'Unavailable',
+    };
   }
 }
 

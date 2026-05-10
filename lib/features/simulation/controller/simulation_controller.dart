@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../../../core/ffi/ccn_repository.dart';
 import '../../../core/models/experiment_definition.dart';
 import '../../../core/models/network_visualization.dart';
+import '../domain/experiment_phase_interpreter.dart';
+import '../domain/signal_trace_story.dart';
+import '../domain/visualization_projection.dart';
 import 'rolling_history.dart';
 import 'run_state.dart';
 import 'simulation_state.dart';
@@ -20,6 +23,10 @@ class SimulationController extends ChangeNotifier {
        _state = SimulationState(selectedExperiment: initialExperiment);
 
   final SimulationRunLifecycle _runLifecycle;
+  final SignalTraceStoryBuilder _traceBuilder = const SignalTraceStoryBuilder();
+  final VisualNetworkProjector _projector = const VisualNetworkProjector();
+  final ExperimentPhaseInterpreter _phaseInterpreter =
+      const ExperimentPhaseInterpreter();
   SimulationState _state;
   bool _disposed = false;
 
@@ -74,11 +81,109 @@ class SimulationController extends ChangeNotifier {
         neuronId >= _state.selectedExperiment.network.neuronCount) {
       return;
     }
-    _setState(_state.copyWith(selectedNeuronId: neuronId));
+    _setState(
+      _state.copyWith(
+        selectedNeuronId: neuronId,
+        tracePlayback: const SignalTracePlayback(),
+      ),
+    );
   }
 
   void clearSelectedNeuron() {
-    _setState(_state.copyWith(clearSelectedNeuron: true));
+    _setState(
+      _state.copyWith(
+        clearSelectedNeuron: true,
+        tracePlayback: const SignalTracePlayback(),
+      ),
+    );
+  }
+
+  void activateTraceMode() {
+    final selectedNeuronId = _state.selectedNeuronId;
+    if (selectedNeuronId == null) {
+      return;
+    }
+    final story = _traceBuilder.build(
+      selectedNeuronId: selectedNeuronId,
+      frame: _currentFrame(),
+      recentSpikes: _state.rasterHistory,
+    );
+    _setState(
+      _state.copyWith(
+        tracePlayback: SignalTracePlayback(active: true, story: story),
+      ),
+    );
+  }
+
+  void pauseTrace() {
+    _setState(
+      _state.copyWith(
+        tracePlayback: _state.tracePlayback.copyWith(playing: false),
+      ),
+    );
+  }
+
+  void playTrace() {
+    final playback = _state.tracePlayback;
+    if (!playback.active || playback.story == null) {
+      return;
+    }
+    _setState(_state.copyWith(tracePlayback: playback.copyWith(playing: true)));
+  }
+
+  void resetTrace() {
+    final playback = _state.tracePlayback;
+    if (!playback.active) {
+      return;
+    }
+    _setState(
+      _state.copyWith(
+        tracePlayback: playback.copyWith(cursor: 0, playing: false),
+      ),
+    );
+  }
+
+  void stepTraceForward() {
+    final playback = _state.tracePlayback;
+    final story = playback.story;
+    if (!playback.active || story == null || story.playbackLength == 0) {
+      return;
+    }
+    final nextCursor = playback.cursor + 1;
+    _setState(
+      _state.copyWith(
+        tracePlayback: playback.copyWith(
+          cursor: nextCursor.clamp(0, story.playbackLength - 1),
+          playing: nextCursor < story.playbackLength - 1 && playback.playing,
+        ),
+      ),
+    );
+  }
+
+  void setTraceSpeed(double speed) {
+    _setState(
+      _state.copyWith(
+        tracePlayback: _state.tracePlayback.copyWith(speed: speed),
+      ),
+    );
+  }
+
+  void setWeightDeltaOverlayVisible(bool visible) {
+    _setState(_state.copyWith(showWeightDeltaOverlay: visible));
+  }
+
+  void setChallengeReplayComparisonVisible(bool visible) {
+    _setState(_state.copyWith(showChallengeReplayComparison: visible));
+  }
+
+  void setNarrationEnabled(bool enabled) {
+    _setState(
+      _state.copyWith(narrationEnabled: enabled, narrationDismissed: false),
+    );
+  }
+
+  void dismissNarration() {
+    _setState(_state.copyWith(narrationDismissed: true));
   }
 
   Future<void> reset() async {
@@ -136,6 +241,28 @@ class SimulationController extends ChangeNotifier {
     if (!_disposed) {
       notifyListeners();
     }
+  }
+
+  VisualNetworkFrame _currentFrame() {
+    final inspected = _state.inspectedVariant;
+    final activity = inspected?.activity ?? _state.activitySnapshot;
+    final weights = inspected?.weights ?? _state.weightSnapshot;
+    return _projector.project(
+      experiment: _state.selectedExperiment,
+      activity: activity,
+      weights: weights,
+      latestFrame: inspected == null ? _state.latestFrame : null,
+      baselineWeights: _state.baselineWeights,
+      currentStep: inspected?.step ?? _state.currentStep,
+      phaseLabel: inspected?.label ?? _phaseLabel(),
+    );
+  }
+
+  String _phaseLabel() {
+    return _phaseInterpreter.labelForProgress(
+      _state.phaseProgress,
+      _state.selectedExperiment.phases,
+    );
   }
 
   @override

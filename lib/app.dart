@@ -19,8 +19,8 @@ class AppRunner {
   final SimulationController simulationController;
   final SimulationInteractionController interactionController;
 
-  static Future<AppRunner> init() async {
-    final repository = NativeCcnRepository(CcnNative.loadAndVerify());
+  static Future<AppRunner> init({CcnRepository? repository}) async {
+    repository ??= NativeCcnRepository(CcnNative.loadAndVerify());
     final dependencies = AppDependencies(repository: repository);
     final simulationController = SimulationController(
       repository: dependencies.repository,

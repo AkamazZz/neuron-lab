@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/network_visualization.dart';
 import '../domain/continuous_network_render_data.dart';
+import '../domain/path_weight_delta.dart';
+import '../domain/signal_trace_story.dart';
 
 class ContinuousNetworkPainter extends CustomPainter {
   ContinuousNetworkPainter({required this.renderData});
@@ -13,6 +15,8 @@ class ContinuousNetworkPainter extends CustomPainter {
   final Paint _backgroundPaint = Paint()..color = const Color(0xff101817);
   final Paint _linePaint = Paint()..strokeCap = StrokeCap.round;
   final Paint _pulsePaint = Paint()..style = PaintingStyle.fill;
+  final Paint _tracePaint = Paint()..strokeCap = StrokeCap.round;
+  final Paint _labelBackgroundPaint = Paint()..style = PaintingStyle.fill;
   final Paint _haloPaint = Paint()..style = PaintingStyle.fill;
   final Paint _focusPaint = Paint()..style = PaintingStyle.fill;
   final Paint _ringPaint = Paint()..style = PaintingStyle.stroke;
@@ -37,6 +41,7 @@ class ContinuousNetworkPainter extends CustomPainter {
 
     final positions = renderData.projection.positions;
     final selectedPaths = renderData.selectedPaths;
+    final activeTraceSegment = renderData.activeTraceSegment;
     final sortedSynapses =
         frame.synapses
             .where(
@@ -59,6 +64,7 @@ class ContinuousNetworkPainter extends CustomPainter {
         positions,
         active: false,
         selected: selectedPaths.highlightsSynapse(synapse),
+        traced: _isTraceSegment(synapse, activeTraceSegment),
         subdued: selectedPaths.subduesSynapse(synapse),
       );
     }
@@ -73,6 +79,7 @@ class ContinuousNetworkPainter extends CustomPainter {
         positions,
         active: true,
         selected: selectedPaths.highlightsSynapse(synapse),
+        traced: _isTraceSegment(synapse, activeTraceSegment),
         subdued: selectedPaths.subduesSynapse(synapse),
       );
     }
@@ -88,9 +95,31 @@ class ContinuousNetworkPainter extends CustomPainter {
           positions,
           active: true,
           selected: true,
+          traced: _isTraceSegment(synapse, activeTraceSegment),
           subdued: false,
         );
       }
+    }
+
+    if (activeTraceSegment != null) {
+      final tracedSynapses = sortedSynapses.where(
+        (synapse) => _isTraceSegment(synapse, activeTraceSegment),
+      );
+      for (final synapse in tracedSynapses) {
+        _drawSynapse(
+          canvas,
+          synapse,
+          positions,
+          active: true,
+          selected: true,
+          traced: true,
+          subdued: false,
+        );
+      }
+    }
+
+    for (final delta in renderData.weightDeltas) {
+      _drawWeightDeltaLabel(canvas, delta, positions);
     }
 
     final sortedNeurons = renderData.projection.neurons.toList(growable: false)
@@ -101,6 +130,10 @@ class ContinuousNetworkPainter extends CustomPainter {
         projected.neuron,
         projected.center,
         selected: projected.neuron.id == selectedPaths.selectedNeuronId,
+        traced:
+            activeTraceSegment != null &&
+            (projected.neuron.id == activeTraceSegment.source ||
+                projected.neuron.id == activeTraceSegment.target),
         subdued: selectedPaths.subduesNeuron(projected.neuron.id),
       );
     }
@@ -114,6 +147,7 @@ class ContinuousNetworkPainter extends CustomPainter {
     Map<int, Offset> positions, {
     required bool active,
     required bool selected,
+    required bool traced,
     required bool subdued,
   }) {
     final source = positions[synapse.source]!;
@@ -139,7 +173,9 @@ class ContinuousNetworkPainter extends CustomPainter {
 
     _linePaint
       ..color = color.withValues(
-        alpha: selected
+        alpha: traced
+            ? 1.0
+            : selected
             ? selectedAlpha
             : subdued
             ? 0.04 + weight * 0.06
@@ -147,12 +183,20 @@ class ContinuousNetworkPainter extends CustomPainter {
             ? 0.86
             : 0.12 + weight * 0.18,
       )
-      ..strokeWidth = selected
+      ..strokeWidth = traced
+          ? 5.8 + weight * 2.8
+          : selected
           ? 2.6 + weight * 2.6
           : active
           ? 2.2 + weight * 2.4
           : 0.45 + weight * 1.5;
 
+    if (traced) {
+      _tracePaint
+        ..color = const Color(0xfffdf6a8).withValues(alpha: 0.55)
+        ..strokeWidth = _linePaint.strokeWidth + 6;
+      canvas.drawLine(source, target, _tracePaint);
+    }
     canvas.drawLine(source, target, _linePaint);
 
     if (!active && !selected) {
@@ -161,7 +205,9 @@ class ContinuousNetworkPainter extends CustomPainter {
 
     final progress = ((frame.step % 18) / 18.0);
     final pulseCenter = Offset.lerp(source, target, progress)!;
-    _pulsePaint.color = color.withValues(alpha: selected ? 1.0 : 0.95);
+    _pulsePaint.color = traced
+        ? const Color(0xfffff7a6)
+        : color.withValues(alpha: selected ? 1.0 : 0.95);
     canvas.drawCircle(pulseCenter, 3.5 + weight * 5.5, _pulsePaint);
 
     final arrowPoint = Offset.lerp(
@@ -191,6 +237,7 @@ class ContinuousNetworkPainter extends CustomPainter {
     VisualNeuron neuron,
     Offset center, {
     required bool selected,
+    required bool traced,
     required bool subdued,
   }) {
     final depthScale = 0.7 + neuron.depth * 0.8;
@@ -216,6 +263,14 @@ class ContinuousNetworkPainter extends CustomPainter {
         ..color = const Color(0xffffffff).withValues(alpha: 0.9)
         ..strokeWidth = 2.4;
       canvas.drawCircle(center, radius * 2.15, _ringPaint);
+    }
+    if (traced) {
+      _focusPaint.color = const Color(0xfffff7a6).withValues(alpha: 0.28);
+      canvas.drawCircle(center, radius * 3.8, _focusPaint);
+      _ringPaint
+        ..color = const Color(0xfffff7a6).withValues(alpha: 0.95)
+        ..strokeWidth = 3.0;
+      canvas.drawCircle(center, radius * 2.45, _ringPaint);
     }
 
     _dendritePaint
@@ -249,6 +304,75 @@ class ContinuousNetworkPainter extends CustomPainter {
           : const Color(0xfffff5d1).withValues(alpha: 0.86 * alpha)
       ..strokeWidth = neuron.type == VisualNeuronType.inhibitory ? 2.2 : 1.2;
     canvas.drawCircle(center, radius, _outlinePaint);
+  }
+
+  bool _isTraceSegment(VisualSynapse synapse, SignalTraceSegment? segment) {
+    return segment != null &&
+        synapse.source == segment.source &&
+        synapse.target == segment.target;
+  }
+
+  void _drawWeightDeltaLabel(
+    Canvas canvas,
+    PathWeightDelta delta,
+    Map<int, Offset> positions,
+  ) {
+    final source = positions[delta.source];
+    final target = positions[delta.target];
+    if (source == null || target == null) {
+      return;
+    }
+    final midpoint = Offset.lerp(source, target, 0.5)!;
+    final color = _deltaColor(delta.direction);
+    _tracePaint
+      ..color = color.withValues(alpha: 0.76)
+      ..strokeWidth = 4.2;
+    canvas.drawLine(source, target, _tracePaint);
+    final painter = TextPainter(
+      text: TextSpan(
+        text: delta.label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 120);
+    final rect = Rect.fromLTWH(
+      midpoint.dx - painter.width / 2 - 6,
+      midpoint.dy - painter.height / 2 - 4,
+      painter.width + 12,
+      painter.height + 8,
+    );
+    _labelBackgroundPaint.color = const Color(
+      0xff101817,
+    ).withValues(alpha: 0.84);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+      _labelBackgroundPaint,
+    );
+    _outlinePaint
+      ..color = color.withValues(alpha: 0.85)
+      ..strokeWidth = 1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+      _outlinePaint,
+    );
+    painter.paint(canvas, Offset(rect.left + 6, rect.top + 4));
+  }
+
+  Color _deltaColor(PathWeightDeltaDirection direction) {
+    switch (direction) {
+      case PathWeightDeltaDirection.strengthened:
+        return const Color(0xff8ff0a4);
+      case PathWeightDeltaDirection.weakened:
+        return const Color(0xffff8585);
+      case PathWeightDeltaDirection.unchanged:
+        return const Color(0xffd9e3df);
+      case PathWeightDeltaDirection.unknown:
+        return const Color(0xffffd36e);
+    }
   }
 
   void _drawContext(Canvas canvas, Size size) {

@@ -40,6 +40,14 @@ class LabSidebar extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         const PatternEditorPanel(),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          key: const ValueKey('narration-mode-switch'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Narration'),
+          value: state.narrationEnabled,
+          onChanged: controller.setNarrationEnabled,
+        ),
       ],
     );
   }
