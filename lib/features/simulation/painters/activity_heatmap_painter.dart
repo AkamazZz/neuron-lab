@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/models/snapshots.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
 
 class ActivityHeatmapPainter extends CustomPainter {
   const ActivityHeatmapPainter({required this.snapshot});

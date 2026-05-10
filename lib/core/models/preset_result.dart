@@ -10,6 +10,36 @@ sealed class PresetResult {
   }
 }
 
+class CustomPatternResult extends PresetResult {
+  const CustomPatternResult({
+    required this.patternLabel,
+    required this.patternId,
+    required this.neuronIds,
+    required this.strength,
+    required this.dropout,
+    required this.targetActiveCount,
+    required this.targetSpikeCount,
+    required this.offPatternActiveCount,
+    required this.offPatternSpikeCount,
+    required this.responseSimilarity,
+    required this.totalSpikes,
+    required this.averageWeight,
+  });
+
+  final String patternLabel;
+  final String patternId;
+  final List<int> neuronIds;
+  final double strength;
+  final double dropout;
+  final int targetActiveCount;
+  final int targetSpikeCount;
+  final int offPatternActiveCount;
+  final int offPatternSpikeCount;
+  final double responseSimilarity;
+  final int totalSpikes;
+  final double averageWeight;
+}
+
 class GenericResult extends PresetResult {
   const GenericResult({required this.totalSpikes, required this.averageWeight});
 

@@ -1,4 +1,4 @@
-import '../../../core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
 
 class SelectedPathClassification {
   const SelectedPathClassification({

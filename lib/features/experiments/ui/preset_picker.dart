@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/models/experiment_definition.dart';
-import '../presets/preset_catalog.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/features/experiments/presets/preset_catalog.dart';
 
 class PresetPicker extends StatelessWidget {
   const PresetPicker({

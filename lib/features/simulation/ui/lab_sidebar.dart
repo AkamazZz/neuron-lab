@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/scope/simulation_scope.dart';
-import '../../experiments/ui/experiment_summary.dart';
-import '../../experiments/ui/preset_picker.dart';
-import '../../pattern_editor/ui/pattern_editor_panel.dart';
-import 'run_controls.dart';
+import 'package:ccn_visualization/core/scope/simulation_scope.dart';
+import 'package:ccn_visualization/features/experiments/ui/experiment_summary.dart';
+import 'package:ccn_visualization/features/experiments/ui/preset_picker.dart';
+import 'package:ccn_visualization/features/pattern_editor/ui/pattern_editor_panel.dart';
+import 'package:ccn_visualization/features/simulation/ui/run_controls.dart';
 
 class LabSidebar extends StatelessWidget {
   const LabSidebar({super.key});

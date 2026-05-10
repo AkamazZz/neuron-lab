@@ -1,4 +1,4 @@
-import '../../../core/models/step_frame.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
 
 class RollingHistory {
   RollingHistory({this.maxEvents = 1200, this.maxSpikeCounts = 240});

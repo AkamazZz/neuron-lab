@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/models/snapshots.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
 
 class WeightSnapshotPainter extends CustomPainter {
   const WeightSnapshotPainter({

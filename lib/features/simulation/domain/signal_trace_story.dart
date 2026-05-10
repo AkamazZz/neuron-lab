@@ -1,5 +1,5 @@
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/step_frame.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
 
 enum SignalTraceOutcome { reachedLearnedPath, fadedOut, unavailable }
 
@@ -95,7 +95,7 @@ class SignalTracePlayback {
       active: active ?? this.active,
       playing: playing ?? this.playing,
       cursor: cursor ?? this.cursor,
-      speed: (speed ?? this.speed).clamp(0.5, 3.0),
+      speed: (speed ?? this.speed).clamp(0.25, 3.0),
       story: clearStory ? null : story ?? this.story,
     );
   }

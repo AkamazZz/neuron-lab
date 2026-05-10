@@ -1,4 +1,4 @@
-import 'metrics.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
 
 class SpikeEvent {
   const SpikeEvent({

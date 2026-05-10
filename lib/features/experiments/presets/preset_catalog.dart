@@ -1,8 +1,8 @@
-import '../../../core/models/experiment_definition.dart';
-import '../../../core/models/metrics.dart';
-import '../../../core/models/pattern.dart';
-import '../../../core/models/phase.dart';
-import '../../../core/models/simulation_config.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/pattern.dart';
+import 'package:ccn_visualization/core/models/phase.dart';
+import 'package:ccn_visualization/core/models/simulation_config.dart';
 
 class PresetCatalog {
   static List<ExperimentDefinition> all() => [

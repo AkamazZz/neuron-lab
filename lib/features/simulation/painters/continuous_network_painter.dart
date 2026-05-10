@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/models/network_visualization.dart';
-import '../domain/continuous_network_render_data.dart';
-import '../domain/path_weight_delta.dart';
-import '../domain/signal_trace_story.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/features/simulation/domain/continuous_network_render_data.dart';
+import 'package:ccn_visualization/features/simulation/domain/path_weight_delta.dart';
+import 'package:ccn_visualization/features/simulation/domain/signal_trace_story.dart';
 
 class ContinuousNetworkPainter extends CustomPainter {
   ContinuousNetworkPainter({required this.renderData});

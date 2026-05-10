@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../core/ffi/ccn_repository.dart';
-import '../../../core/models/experiment_definition.dart';
-import '../../../core/models/network_visualization.dart';
-import '../domain/experiment_phase_interpreter.dart';
-import '../domain/signal_trace_story.dart';
-import '../domain/visualization_projection.dart';
-import 'rolling_history.dart';
-import 'run_state.dart';
-import 'simulation_state.dart';
-import '../domain/simulation_run_lifecycle.dart';
+import 'package:ccn_visualization/core/ffi/ccn_repository.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/features/simulation/domain/experiment_phase_interpreter.dart';
+import 'package:ccn_visualization/features/simulation/domain/signal_trace_story.dart';
+import 'package:ccn_visualization/features/simulation/domain/simulation_run_lifecycle.dart';
+import 'package:ccn_visualization/features/simulation/domain/visualization_projection.dart';
+import 'package:ccn_visualization/features/simulation/controller/rolling_history.dart';
+import 'package:ccn_visualization/features/simulation/controller/run_state.dart';
+import 'package:ccn_visualization/features/simulation/controller/simulation_state.dart';
 
 class SimulationController extends ChangeNotifier {
   SimulationController({
@@ -39,7 +39,8 @@ class SimulationController extends ChangeNotifier {
   }
 
   Future<void> run() async {
-    if (_state.runState == RunState.running) {
+    if (_state.runState == RunState.running ||
+        _state.runState == RunState.completed) {
       return;
     }
     await _guard(() async {

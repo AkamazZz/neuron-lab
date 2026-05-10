@@ -1,7 +1,7 @@
-import 'metrics.dart';
-import 'pattern.dart';
-import 'phase.dart';
-import 'simulation_config.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/pattern.dart';
+import 'package:ccn_visualization/core/models/phase.dart';
+import 'package:ccn_visualization/core/models/simulation_config.dart';
 
 enum PresetKind { generic, patternRecognition, memoryEcho }
 

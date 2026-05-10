@@ -1,12 +1,12 @@
 import 'package:ccn_visualization/core/ffi/ccn_native.dart';
 import 'package:flutter/material.dart';
 
-import 'core/ffi/ccn_repository.dart';
-import 'core/scope/app_scope.dart';
-import 'core/scope/simulation_scope.dart';
-import 'features/simulation/controller/simulation_controller.dart';
-import 'features/simulation/domain/simulation_interaction_controller.dart';
-import 'features/simulation/ui/experiment_lab_screen.dart';
+import 'package:ccn_visualization/core/ffi/ccn_repository.dart';
+import 'package:ccn_visualization/core/scope/app_scope.dart';
+import 'package:ccn_visualization/core/scope/simulation_scope.dart';
+import 'package:ccn_visualization/features/simulation/controller/simulation_controller.dart';
+import 'package:ccn_visualization/features/simulation/domain/simulation_interaction_controller.dart';
+import 'package:ccn_visualization/features/simulation/ui/experiment_lab_screen.dart';
 
 class AppRunner {
   AppRunner._({

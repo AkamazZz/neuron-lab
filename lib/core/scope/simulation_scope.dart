@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../features/simulation/controller/simulation_controller.dart';
-import '../../features/simulation/domain/simulation_interaction_controller.dart';
+import 'package:ccn_visualization/features/simulation/controller/simulation_controller.dart';
+import 'package:ccn_visualization/features/simulation/domain/simulation_interaction_controller.dart';
 
 class SimulationScope extends InheritedWidget {
   const SimulationScope({

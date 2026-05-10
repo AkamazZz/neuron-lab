@@ -1,5 +1,5 @@
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/phase.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/phase.dart';
 
 class ExperimentPhaseInterpreter {
   const ExperimentPhaseInterpreter();

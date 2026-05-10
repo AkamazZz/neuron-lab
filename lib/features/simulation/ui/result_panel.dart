@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/models/preset_result.dart';
+import 'package:ccn_visualization/core/models/preset_result.dart';
 
 class ResultPanel extends StatelessWidget {
   const ResultPanel({super.key, required this.result});
@@ -18,10 +18,34 @@ class ResultPanel extends StatelessWidget {
         result: result,
       ),
       MemoryEchoResult() => _MemoryEchoResultView(result: result),
+      CustomPatternResult() => _CustomPatternResultView(result: result),
       GenericResult() => Text(
         'Total spikes ${result.totalSpikes}, average weight ${result.averageWeight.toStringAsFixed(3)}.',
       ),
     };
+  }
+}
+
+class _CustomPatternResultView extends StatelessWidget {
+  const _CustomPatternResultView({required this.result});
+
+  final CustomPatternResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final neurons = result.neuronIds.isEmpty
+        ? 'none'
+        : result.neuronIds.join(', ');
+    return Text(
+      'Custom pattern ${result.patternLabel} (${result.patternId}) used '
+      'neurons $neurons at current ${result.strength.toStringAsFixed(2)} '
+      'with train dropout ${(result.dropout * 100).toStringAsFixed(0)}%. '
+      'Probe target activation ${result.targetActiveCount}/${result.neuronIds.length}, '
+      'target probe spikes ${result.targetSpikeCount}; off-pattern activation '
+      '${result.offPatternActiveCount}, off-pattern probe spikes '
+      '${result.offPatternSpikeCount}. Response similarity '
+      '${result.responseSimilarity.toStringAsFixed(2)}.',
+    );
   }
 }
 

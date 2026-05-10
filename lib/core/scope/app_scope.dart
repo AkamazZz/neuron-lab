@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../ffi/ccn_native.dart';
-import '../ffi/ccn_repository.dart';
-import '../models/experiment_definition.dart';
-import '../../features/experiments/presets/preset_catalog.dart';
+import 'package:ccn_visualization/core/ffi/ccn_native.dart';
+import 'package:ccn_visualization/core/ffi/ccn_repository.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/features/experiments/presets/preset_catalog.dart';
 
 class AppDependencies {
   AppDependencies({

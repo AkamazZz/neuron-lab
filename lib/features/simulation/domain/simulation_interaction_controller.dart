@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../core/models/network_visualization.dart';
-import 'selected_path_classifier.dart';
-import 'visualization_projection.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/features/simulation/domain/selected_path_classifier.dart';
+import 'package:ccn_visualization/features/simulation/domain/visualization_projection.dart';
 
 class CameraGestureAnchor {
   const CameraGestureAnchor({required this.camera, required this.focalPoint});

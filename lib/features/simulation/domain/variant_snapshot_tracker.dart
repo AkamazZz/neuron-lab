@@ -1,8 +1,8 @@
-import '../../../core/models/metrics.dart';
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/phase.dart';
-import '../../../core/models/snapshots.dart';
-import 'experiment_phase_interpreter.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/phase.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
+import 'package:ccn_visualization/features/simulation/domain/experiment_phase_interpreter.dart';
 
 class VariantSnapshotTracker {
   const VariantSnapshotTracker({

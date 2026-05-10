@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/models/step_frame.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
 
 class RasterPainter extends CustomPainter {
   const RasterPainter({required this.events, required this.neuronCount});

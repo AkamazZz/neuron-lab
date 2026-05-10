@@ -1,7 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 
-import 'ccn_bindings.dart';
+import 'package:ccn_visualization/core/ffi/ccn_bindings.dart';
 
 class CcnNative {
   CcnNative._(this.library)

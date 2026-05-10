@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:ffi';
 
-import 'ccn_bindings.dart';
+import 'package:ccn_visualization/core/ffi/ccn_bindings.dart';
 
 String decodeNativeBuffer(CcnBuffer buffer) {
   if (buffer.ptr == nullptr || buffer.len == 0) {

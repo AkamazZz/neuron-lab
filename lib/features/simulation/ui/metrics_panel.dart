@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
 
 class MetricsPanel extends StatelessWidget {
   const MetricsPanel({super.key, required this.metrics, required this.step});

@@ -1,28 +1,33 @@
-import '../../../core/ffi/ccn_repository.dart';
-import '../../../core/models/experiment_definition.dart';
-import '../../../core/models/metrics.dart';
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/snapshots.dart';
-import '../../../core/models/step_frame.dart';
-import '../controller/rolling_history.dart';
-import '../controller/run_state.dart';
-import '../controller/simulation_state.dart';
-import 'signal_trace_story.dart';
-import 'variant_snapshot_tracker.dart';
+import 'package:ccn_visualization/core/ffi/ccn_repository.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
+import 'package:ccn_visualization/features/simulation/controller/rolling_history.dart';
+import 'package:ccn_visualization/features/simulation/controller/run_state.dart';
+import 'package:ccn_visualization/features/simulation/controller/simulation_state.dart';
+import 'package:ccn_visualization/features/simulation/domain/custom_pattern_result_builder.dart';
+import 'package:ccn_visualization/features/simulation/domain/signal_trace_story.dart';
+import 'package:ccn_visualization/features/simulation/domain/variant_snapshot_tracker.dart';
 
 class SimulationRunLifecycle {
   SimulationRunLifecycle({
     required CcnRepository repository,
     RollingHistory? history,
     VariantSnapshotTracker? variantSnapshotTracker,
+    CustomPatternResultBuilder? customPatternResultBuilder,
   }) : _repository = repository,
        _history = history ?? RollingHistory(),
        _variantSnapshotTracker =
-           variantSnapshotTracker ?? const VariantSnapshotTracker();
+           variantSnapshotTracker ?? const VariantSnapshotTracker(),
+       _customPatternResultBuilder =
+           customPatternResultBuilder ?? const CustomPatternResultBuilder();
 
   final CcnRepository _repository;
   final RollingHistory _history;
   final VariantSnapshotTracker _variantSnapshotTracker;
+  final CustomPatternResultBuilder _customPatternResultBuilder;
 
   Future<SimulationState> loadPreset(
     SimulationState state,
@@ -176,7 +181,13 @@ class SimulationRunLifecycle {
     );
 
     if (nextRunState == RunState.completed) {
-      final result = await _repository.experimentResult();
+      final nativeResult = await _repository.experimentResult();
+      final result = _customPatternResultBuilder.build(
+        experiment: state.selectedExperiment,
+        nativeResult: nativeResult,
+        rasterHistory: nextState.rasterHistory,
+        activity: snapshots.activity,
+      );
       nextState = nextState.copyWith(result: result);
     }
     return nextState;

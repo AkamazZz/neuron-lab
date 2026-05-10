@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../controller/run_state.dart';
+import 'package:ccn_visualization/features/simulation/controller/run_state.dart';
 
 class RunControls extends StatelessWidget {
   const RunControls({

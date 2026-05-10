@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/models/phase.dart';
+import 'package:ccn_visualization/core/models/phase.dart';
 
 class PhaseProgressView extends StatelessWidget {
   const PhaseProgressView({super.key, required this.progress});

@@ -3,17 +3,17 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
-import '../models/experiment_definition.dart';
-import '../models/metrics.dart';
-import '../models/phase.dart';
-import '../models/preset_result.dart';
-import '../models/simulation_config.dart';
-import '../models/snapshots.dart';
-import '../models/step_frame.dart';
-import 'ccn_bindings.dart';
-import 'ccn_native.dart';
-import 'ccn_status.dart';
-import 'native_buffer.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/phase.dart';
+import 'package:ccn_visualization/core/models/preset_result.dart';
+import 'package:ccn_visualization/core/models/simulation_config.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
+import 'package:ccn_visualization/core/ffi/ccn_bindings.dart';
+import 'package:ccn_visualization/core/ffi/ccn_native.dart';
+import 'package:ccn_visualization/core/ffi/ccn_status.dart';
+import 'package:ccn_visualization/core/ffi/native_buffer.dart';
 
 enum NativeExperimentState { idle, loaded, running, paused, completed, failed }
 

@@ -1,9 +1,9 @@
-import '../../../core/models/experiment_definition.dart';
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/step_frame.dart';
-import 'challenge_replay_comparison.dart';
-import 'experiment_phase_interpreter.dart';
-import 'spike_timing_explanation.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
+import 'package:ccn_visualization/features/simulation/domain/challenge_replay_comparison.dart';
+import 'package:ccn_visualization/features/simulation/domain/experiment_phase_interpreter.dart';
+import 'package:ccn_visualization/features/simulation/domain/spike_timing_explanation.dart';
 
 class SelectedNeuronSummary {
   const SelectedNeuronSummary({

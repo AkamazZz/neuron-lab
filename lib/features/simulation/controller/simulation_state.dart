@@ -1,12 +1,12 @@
-import '../../../core/models/experiment_definition.dart';
-import '../../../core/models/metrics.dart';
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/phase.dart';
-import '../../../core/models/preset_result.dart';
-import '../../../core/models/snapshots.dart';
-import '../../../core/models/step_frame.dart';
-import '../domain/signal_trace_story.dart';
-import 'run_state.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/phase.dart';
+import 'package:ccn_visualization/core/models/preset_result.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
+import 'package:ccn_visualization/features/simulation/domain/signal_trace_story.dart';
+import 'package:ccn_visualization/features/simulation/controller/run_state.dart';
 
 class SimulationState {
   const SimulationState({

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 
-import 'app.dart';
+import 'package:ccn_visualization/app.dart';
 
 class Bootstrap {
   const Bootstrap._();

@@ -1,5 +1,5 @@
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/step_frame.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
 
 enum SpikeTimingExplanationKind { strengthening, weakening, unavailable }
 

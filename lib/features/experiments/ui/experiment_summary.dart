@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
 
 class ExperimentSummary extends StatelessWidget {
   const ExperimentSummary({super.key, required this.experiment});

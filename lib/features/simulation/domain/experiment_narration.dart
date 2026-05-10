@@ -1,6 +1,6 @@
-import '../../../core/models/metrics.dart';
-import 'challenge_replay_comparison.dart';
-import 'selected_neuron_summary_builder.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/features/simulation/domain/challenge_replay_comparison.dart';
+import 'package:ccn_visualization/features/simulation/domain/selected_neuron_summary_builder.dart';
 
 enum NarrationCheckpointType {
   baseline,

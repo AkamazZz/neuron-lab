@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../../core/models/experiment_definition.dart';
-import '../../../core/models/network_visualization.dart';
-import '../../../core/models/snapshots.dart';
-import '../../../core/models/step_frame.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
+import 'package:ccn_visualization/core/models/step_frame.dart';
 
 class ProjectedNeuron {
   const ProjectedNeuron({

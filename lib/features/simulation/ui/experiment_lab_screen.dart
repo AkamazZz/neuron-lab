@@ -1,30 +1,32 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
-import '../../../core/models/network_visualization.dart';
-import '../../../core/scope/simulation_scope.dart';
-import '../controller/run_state.dart';
-import '../controller/simulation_controller.dart';
-import '../controller/simulation_state.dart';
-import '../domain/continuous_network_render_data.dart';
-import '../domain/challenge_replay_comparison.dart';
-import '../domain/experiment_phase_interpreter.dart';
-import '../domain/experiment_narration.dart';
-import '../domain/selected_neuron_summary_builder.dart';
-import '../domain/signal_trace_story.dart';
-import '../domain/simulation_interaction_controller.dart';
-import '../domain/spike_timing_explanation.dart';
-import '../domain/visualization_projection.dart';
-import '../painters/activity_heatmap_painter.dart';
-import '../painters/continuous_network_painter.dart';
-import '../painters/raster_painter.dart';
-import '../painters/spike_count_painter.dart';
-import '../painters/weight_snapshot_painter.dart';
-import 'lab_sidebar.dart';
-import 'metrics_panel.dart';
-import 'phase_progress_view.dart';
-import 'result_panel.dart';
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/core/models/network_visualization.dart';
+import 'package:ccn_visualization/core/scope/simulation_scope.dart';
+import 'package:ccn_visualization/features/simulation/controller/run_state.dart';
+import 'package:ccn_visualization/features/simulation/controller/simulation_controller.dart';
+import 'package:ccn_visualization/features/simulation/controller/simulation_state.dart';
+import 'package:ccn_visualization/features/simulation/domain/continuous_network_render_data.dart';
+import 'package:ccn_visualization/features/simulation/domain/challenge_replay_comparison.dart';
+import 'package:ccn_visualization/features/simulation/domain/experiment_phase_interpreter.dart';
+import 'package:ccn_visualization/features/simulation/domain/experiment_narration.dart';
+import 'package:ccn_visualization/features/simulation/domain/selected_neuron_summary_builder.dart';
+import 'package:ccn_visualization/features/simulation/domain/signal_trace_story.dart';
+import 'package:ccn_visualization/features/simulation/domain/simulation_interaction_controller.dart';
+import 'package:ccn_visualization/features/simulation/domain/spike_timing_explanation.dart';
+import 'package:ccn_visualization/features/simulation/domain/visualization_projection.dart';
+import 'package:ccn_visualization/features/simulation/painters/activity_heatmap_painter.dart';
+import 'package:ccn_visualization/features/simulation/painters/continuous_network_painter.dart';
+import 'package:ccn_visualization/features/simulation/painters/raster_painter.dart';
+import 'package:ccn_visualization/features/simulation/painters/spike_count_painter.dart';
+import 'package:ccn_visualization/features/simulation/painters/weight_snapshot_painter.dart';
+import 'package:ccn_visualization/features/simulation/ui/lab_sidebar.dart';
+import 'package:ccn_visualization/features/simulation/ui/metrics_panel.dart';
+import 'package:ccn_visualization/features/simulation/ui/phase_progress_view.dart';
+import 'package:ccn_visualization/features/simulation/ui/result_panel.dart';
 
 class ExperimentLabScreen extends StatefulWidget {
   const ExperimentLabScreen({super.key});
@@ -35,31 +37,105 @@ class ExperimentLabScreen extends StatefulWidget {
 
 class _ExperimentLabScreenState extends State<ExperimentLabScreen>
     with SingleTickerProviderStateMixin {
-  Timer? _timer;
-  int _traceTick = 0;
+  static const _simulationInterval = Duration(milliseconds: 160);
+  static const _traceBaseInterval = Duration(milliseconds: 640);
+  static const _minTraceInterval = Duration(milliseconds: 160);
+  static const _maxTraceInterval = Duration(milliseconds: 2560);
+
+  Ticker? _ticker;
+  SimulationController? _controller;
+  Duration _lastElapsed = Duration.zero;
+  Duration _simulationElapsed = Duration.zero;
+  Duration _traceElapsed = Duration.zero;
+  bool _steppingSimulation = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _timer ??= Timer.periodic(const Duration(milliseconds: 80), (_) {
-      final controller = SimulationScope.of(context);
-      controller.stepTick(maxSteps: controller.state.stepsPerTick);
-      final trace = controller.state.tracePlayback;
-      if (trace.playing) {
-        _traceTick += 1;
-        final threshold = (8 / trace.speed).round().clamp(2, 16);
-        if (_traceTick >= threshold) {
-          _traceTick = 0;
-          controller.stepTraceForward();
-        }
-      }
-    });
+    final controller = SimulationScope.of(context);
+    if (!identical(_controller, controller)) {
+      _controller?.removeListener(_syncTicker);
+      _controller = controller..addListener(_syncTicker);
+    }
+    _ticker ??= createTicker(_handleTick);
+    _syncTicker();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _controller?.removeListener(_syncTicker);
+    _ticker?.dispose();
     super.dispose();
+  }
+
+  void _syncTicker() {
+    final controller = _controller;
+    final ticker = _ticker;
+    if (controller == null || ticker == null) {
+      return;
+    }
+    final state = controller.state;
+    final shouldTick =
+        state.runState == RunState.running || state.tracePlayback.playing;
+    if (shouldTick && !ticker.isActive) {
+      _lastElapsed = Duration.zero;
+      ticker.start();
+    } else if (!shouldTick && ticker.isActive) {
+      ticker.stop();
+      _lastElapsed = Duration.zero;
+      _simulationElapsed = Duration.zero;
+      _traceElapsed = Duration.zero;
+    }
+  }
+
+  void _handleTick(Duration elapsed) {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    final delta = _lastElapsed == Duration.zero
+        ? Duration.zero
+        : elapsed - _lastElapsed;
+    _lastElapsed = elapsed;
+    _simulationElapsed += delta;
+    _traceElapsed += delta;
+
+    if (_simulationElapsed >= _simulationInterval) {
+      _simulationElapsed -= _simulationInterval;
+      unawaited(_stepSimulation(controller));
+    }
+    final trace = controller.state.tracePlayback;
+    if (trace.playing) {
+      final traceInterval = _traceIntervalForSpeed(trace.speed);
+      if (_traceElapsed >= traceInterval) {
+        _traceElapsed -= traceInterval;
+        controller.stepTraceForward();
+      }
+    } else {
+      _traceElapsed = Duration.zero;
+    }
+  }
+
+  Future<void> _stepSimulation(SimulationController controller) async {
+    if (_steppingSimulation) {
+      return;
+    }
+    _steppingSimulation = true;
+    try {
+      await controller.stepTick(maxSteps: controller.state.stepsPerTick);
+    } finally {
+      _steppingSimulation = false;
+    }
+  }
+
+  Duration _traceIntervalForSpeed(double speed) {
+    final milliseconds = (_traceBaseInterval.inMilliseconds / speed).round();
+    return Duration(
+      milliseconds: milliseconds.clamp(
+        _minTraceInterval.inMilliseconds,
+        _maxTraceInterval.inMilliseconds,
+      ),
+    );
   }
 
   @override
@@ -158,6 +234,12 @@ class _LabContent extends StatelessWidget {
           const SizedBox(height: 12),
         ],
         _PrimaryNetworkSurface(frame: networkFrame, state: state),
+        if (_customPatternSourceLabel(experiment) != null) ...[
+          const SizedBox(height: 8),
+          _CustomPatternSourceContext(
+            label: _customPatternSourceLabel(experiment)!,
+          ),
+        ],
         if (selectedSummary != null) ...[
           const SizedBox(height: 12),
           _SelectedNeuronInspector(
@@ -252,6 +334,47 @@ class _LabContent extends StatelessWidget {
       case RunState.failed:
         return 'Failed';
     }
+  }
+
+  String? _customPatternSourceLabel(ExperimentDefinition experiment) {
+    if (experiment.id != 'custom_pattern_lab' || experiment.patterns.isEmpty) {
+      return null;
+    }
+    final pattern = experiment.patterns.first;
+    final neurons =
+        pattern.activations
+            .map((activation) => activation.neuronId)
+            .toList(growable: false)
+          ..sort();
+    final neuronLabel = neurons.isEmpty ? 'none' : neurons.join(', ');
+    return 'Custom source neurons: $neuronLabel';
+  }
+}
+
+class _CustomPatternSourceContext extends StatelessWidget {
+  const _CustomPatternSourceContext({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSecondaryContainer,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -694,9 +817,9 @@ class _TraceControls extends StatelessWidget {
                 width: 180,
                 child: Slider(
                   key: const ValueKey('trace-speed-slider'),
-                  min: 0.5,
+                  min: 0.25,
                   max: 3.0,
-                  divisions: 5,
+                  divisions: 11,
                   value: playback.speed,
                   label: '${playback.speed.toStringAsFixed(1)}x',
                   onChanged: onSpeedChanged,

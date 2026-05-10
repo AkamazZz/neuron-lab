@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../core/models/pattern.dart';
-import 'pattern_editor_state.dart';
+import 'package:ccn_visualization/features/pattern_editor/controller/pattern_editor_state.dart';
 
 class PatternEditorController extends ChangeNotifier {
   PatternEditorState _state = const PatternEditorState();
@@ -33,19 +32,27 @@ class PatternEditorController extends ChangeNotifier {
   }
 
   void saveActivePattern() {
-    final id = _state.activeName.toLowerCase().replaceAll(' ', '_');
-    final pattern = PatternDefinition(
-      id: id,
-      label: _state.activeName,
-      activations: _state.activeCells
-          .map(
-            (cell) =>
-                PatternActivation(neuronId: cell, current: _state.strength),
-          )
-          .toList(growable: false),
-    );
+    final pattern = _state.activePattern;
     _state = _state.copyWith(
-      savedPatterns: {..._state.savedPatterns, id: pattern},
+      savedPatterns: {..._state.savedPatterns, pattern.id: pattern},
+    );
+    notifyListeners();
+  }
+
+  void loadSavedPattern(String id) {
+    final pattern = _state.savedPatterns[id];
+    if (pattern == null) {
+      return;
+    }
+    final activations = pattern.activations.toList(growable: false)
+      ..sort((a, b) => a.neuronId.compareTo(b.neuronId));
+    final strength = activations.isEmpty
+        ? _state.strength
+        : activations.first.current;
+    _state = _state.copyWith(
+      activeCells: activations.map((activation) => activation.neuronId).toSet(),
+      activeName: pattern.label,
+      strength: strength,
     );
     notifyListeners();
   }

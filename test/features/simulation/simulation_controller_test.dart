@@ -2,9 +2,11 @@ import 'package:ccn_visualization/core/ffi/ccn_repository.dart';
 import 'package:ccn_visualization/core/models/metrics.dart';
 import 'package:ccn_visualization/core/models/network_visualization.dart';
 import 'package:ccn_visualization/core/models/phase.dart';
+import 'package:ccn_visualization/core/models/preset_result.dart';
 import 'package:ccn_visualization/core/models/snapshots.dart';
 import 'package:ccn_visualization/core/models/step_frame.dart';
 import 'package:ccn_visualization/features/experiments/presets/preset_catalog.dart';
+import 'package:ccn_visualization/features/pattern_editor/controller/pattern_editor_controller.dart';
 import 'package:ccn_visualization/features/simulation/controller/rolling_history.dart';
 import 'package:ccn_visualization/features/simulation/controller/run_state.dart';
 import 'package:ccn_visualization/features/simulation/controller/simulation_controller.dart';
@@ -230,4 +232,63 @@ void main() {
     expect(controller.state.metrics.activeNeuronCount, 3);
     expect(controller.state.metrics.averageWeight, 0.35);
   });
+
+  test(
+    'custom pattern completion exposes pattern-specific result evidence',
+    () async {
+      final patternController = PatternEditorController()
+        ..toggleCell(2)
+        ..toggleCell(5)
+        ..setStrength(1.6)
+        ..setNoise(0.25);
+      final definition = patternController.state.toExperimentDefinition();
+      final repository = FakeRepository()
+        ..activityResponses.addAll([
+          const ActivitySnapshot(recentFiringRates: [0, 0, 0, 0, 0, 0]),
+          const ActivitySnapshot(recentFiringRates: [0.4, 0, 0.9, 0, 0, 0.8]),
+        ])
+        ..frameResponses.add(
+          const StepFrame(
+            startStep: 180,
+            steps: 2,
+            spikes: [
+              SpikeEvent(
+                stepOffset: 0,
+                absoluteStep: 181,
+                neuronId: 2,
+                membrane: 1,
+              ),
+              SpikeEvent(
+                stepOffset: 1,
+                absoluteStep: 182,
+                neuronId: 4,
+                membrane: 1,
+              ),
+            ],
+          ),
+        )
+        ..stateResponses.add(NativeExperimentState.completed);
+      final controller = SimulationController(
+        repository: repository,
+        initialExperiment: definition,
+      );
+
+      await controller.loadPreset(definition);
+      await controller.run();
+      await controller.stepTick();
+
+      final result = controller.state.result;
+      expect(result, isA<CustomPatternResult>());
+      final customResult = result! as CustomPatternResult;
+      expect(customResult.patternLabel, 'Pattern A');
+      expect(customResult.neuronIds, <int>[2, 5]);
+      expect(customResult.strength, 1.6);
+      expect(customResult.dropout, 0.25);
+      expect(customResult.targetSpikeCount, 1);
+      expect(customResult.offPatternSpikeCount, 1);
+      expect(customResult.targetActiveCount, 2);
+      expect(customResult.offPatternActiveCount, 1);
+      expect(customResult.responseSimilarity, 1.0);
+    },
+  );
 }

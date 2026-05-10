@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'metrics.dart';
-import 'snapshots.dart';
+import 'package:ccn_visualization/core/models/metrics.dart';
+import 'package:ccn_visualization/core/models/snapshots.dart';
 
 enum VisualNeuronType { excitatory, inhibitory }
 
