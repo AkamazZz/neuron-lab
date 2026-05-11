@@ -44,7 +44,8 @@ class _CustomPatternResultView extends StatelessWidget {
       'target probe spikes ${result.targetSpikeCount}; off-pattern activation '
       '${result.offPatternActiveCount}, off-pattern probe spikes '
       '${result.offPatternSpikeCount}. Response similarity '
-      '${result.responseSimilarity.toStringAsFixed(2)}.',
+      '${result.responseSimilarity.toStringAsFixed(2)}. '
+      '${result.explanationFacts.isEmpty ? '' : result.explanationFacts.first}',
     );
   }
 }
