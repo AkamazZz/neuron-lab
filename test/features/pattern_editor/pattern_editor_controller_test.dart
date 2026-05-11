@@ -1,5 +1,7 @@
-import 'package:ccn_visualization/features/pattern_editor/controller/pattern_editor_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:ccn_visualization/core/models/experiment_definition.dart';
+import 'package:ccn_visualization/features/pattern_editor/controller/pattern_editor_controller.dart';
 
 void main() {
   test(
@@ -34,6 +36,7 @@ void main() {
         experiment.phases.first.schedule.toJson()['noise_probability'],
         0.2,
       );
+      expect(experiment.resultKind, PresetKind.customPatternResponse);
     },
   );
 

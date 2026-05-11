@@ -1,6 +1,11 @@
 use ccn_simulation_core::core::SimulationConfig;
-use ccn_simulation_core::experiments::pattern_recognition_preset;
+use ccn_simulation_core::experiments::{
+    ExperimentDefinition, PatternSchedule, Phase, PhaseType, ResultConfig, ResultKind,
+    pattern_recognition_preset,
+};
 use ccn_simulation_core::ffi::*;
+use ccn_simulation_core::metrics::MetricWindow;
+use ccn_simulation_core::patterns::Pattern;
 use serde_json::Value;
 use std::slice;
 
@@ -238,6 +243,34 @@ fn experiment_step_frame_exposes_rust_statistics() {
     assert!(ccn_free_simulation(handle).is_ok());
 }
 
+#[test]
+fn experiment_result_returns_custom_pattern_response_json() {
+    let config = serde_json::to_vec(&SimulationConfig::default()).unwrap();
+    let mut handle = CcnSimulationHandle { id: 0 };
+    assert!(unsafe { ccn_create_simulation(config.as_ptr(), config.len(), &mut handle) }.is_ok());
+
+    let experiment = serde_json::to_vec(&custom_pattern_definition()).unwrap();
+    assert!(unsafe { ccn_load_experiment(handle, experiment.as_ptr(), experiment.len()) }.is_ok());
+
+    let mut state = 0;
+    while state != 4 {
+        let mut frame = empty_frame();
+        assert!(ccn_step_experiment(handle, 4, &mut frame).is_ok());
+        ccn_free_step_frame(frame);
+        assert!(ccn_experiment_state(handle, &mut state).is_ok());
+    }
+
+    let mut result = CcnBuffer::empty();
+    assert!(ccn_experiment_result(handle, &mut result).is_ok());
+    let result_json = buffer_to_json(result);
+    ccn_free_buffer(result);
+
+    assert_eq!(result_json["type"], "custom_pattern_response");
+    assert_eq!(result_json["pattern_id"], "target");
+    assert!(result_json["target_spike_count"].as_u64().unwrap() > 0);
+    assert!(ccn_free_simulation(handle).is_ok());
+}
+
 fn empty_frame() -> CcnStepFrame {
     CcnStepFrame {
         start_step: 0,
@@ -261,4 +294,51 @@ fn buffer_to_string(buffer: CcnBuffer) -> String {
     }
     let bytes = unsafe { slice::from_raw_parts(buffer.ptr, buffer.len) };
     String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+fn custom_pattern_definition() -> ExperimentDefinition {
+    let network = SimulationConfig {
+        seed: Some(404),
+        neuron_count: 16,
+        connection_density: 0.0,
+        inhibitory_fraction: 0.0,
+        ..SimulationConfig::default()
+    };
+    ExperimentDefinition {
+        schema_version: 1,
+        preset_id: Some("custom_pattern_lab".to_string()),
+        seed: Some(404),
+        network,
+        patterns: vec![Pattern::new("target", "Target", &[2, 5], 1.4)],
+        phases: vec![
+            Phase {
+                id: "custom_train".to_string(),
+                phase_type: PhaseType::Train,
+                duration_steps: 3,
+                learning_enabled: true,
+                schedule: PatternSchedule::Constant {
+                    pattern_id: "target".to_string(),
+                    noise_probability: 0.2,
+                },
+                phase_seed: Some(1),
+                stop_condition: None,
+            },
+            Phase {
+                id: "custom_probe".to_string(),
+                phase_type: PhaseType::Probe,
+                duration_steps: 4,
+                learning_enabled: false,
+                schedule: PatternSchedule::Constant {
+                    pattern_id: "target".to_string(),
+                    noise_probability: 0.0,
+                },
+                phase_seed: Some(2),
+                stop_condition: None,
+            },
+        ],
+        metric_windows: Vec::<MetricWindow>::new(),
+        result_config: ResultConfig {
+            kind: ResultKind::CustomPatternResponse,
+        },
+    }
 }

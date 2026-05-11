@@ -3,13 +3,19 @@ import 'package:ccn_visualization/core/models/pattern.dart';
 import 'package:ccn_visualization/core/models/phase.dart';
 import 'package:ccn_visualization/core/models/simulation_config.dart';
 
-enum PresetKind { generic, patternRecognition, memoryEcho }
+enum PresetKind {
+  generic,
+  patternRecognition,
+  memoryEcho,
+  customPatternResponse,
+}
 
 extension PresetKindJson on PresetKind {
   String get resultJsonName => switch (this) {
     PresetKind.generic => 'generic',
     PresetKind.patternRecognition => 'pattern_recognition',
     PresetKind.memoryEcho => 'memory_echo',
+    PresetKind.customPatternResponse => 'custom_pattern_response',
   };
 }
 

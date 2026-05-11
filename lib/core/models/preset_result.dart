@@ -5,6 +5,7 @@ sealed class PresetResult {
     return switch (json['type']) {
       'pattern_recognition' => PatternRecognitionResult.fromJson(json),
       'memory_echo' => MemoryEchoResult.fromJson(json),
+      'custom_pattern_response' => CustomPatternResult.fromJson(json),
       _ => GenericResult.fromJson(json),
     };
   }
@@ -24,6 +25,7 @@ class CustomPatternResult extends PresetResult {
     required this.responseSimilarity,
     required this.totalSpikes,
     required this.averageWeight,
+    this.explanationFacts = const <String>[],
   });
 
   final String patternLabel;
@@ -38,6 +40,29 @@ class CustomPatternResult extends PresetResult {
   final double responseSimilarity;
   final int totalSpikes;
   final double averageWeight;
+  final List<String> explanationFacts;
+
+  factory CustomPatternResult.fromJson(Map<String, Object?> json) =>
+      CustomPatternResult(
+        patternLabel: json['pattern_label']?.toString() ?? '',
+        patternId: json['pattern_id']?.toString() ?? '',
+        neuronIds: (json['neuron_ids'] as List? ?? const <Object?>[])
+            .map((value) => (value as num? ?? 0).toInt())
+            .toList(growable: false),
+        strength: (json['strength'] as num? ?? 0).toDouble(),
+        dropout: (json['dropout'] as num? ?? 0).toDouble(),
+        targetActiveCount: (json['target_active_count'] as num? ?? 0).toInt(),
+        targetSpikeCount: (json['target_spike_count'] as num? ?? 0).toInt(),
+        offPatternActiveCount: (json['off_pattern_active_count'] as num? ?? 0)
+            .toInt(),
+        offPatternSpikeCount: (json['off_pattern_spike_count'] as num? ?? 0)
+            .toInt(),
+        responseSimilarity: (json['response_similarity'] as num? ?? 0)
+            .toDouble(),
+        totalSpikes: (json['total_spikes'] as num? ?? 0).toInt(),
+        averageWeight: (json['average_weight'] as num? ?? 0).toDouble(),
+        explanationFacts: _stringList(json['explanation_facts']),
+      );
 }
 
 class GenericResult extends PresetResult {

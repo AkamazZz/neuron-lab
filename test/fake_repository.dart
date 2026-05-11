@@ -11,6 +11,10 @@ class FakeRepository implements CcnRepository {
   int freeCount = 0;
   int resetCount = 0;
   ExperimentDefinition? loaded;
+  PresetResult result = const GenericResult(
+    totalSpikes: 12,
+    averageWeight: 0.3,
+  );
   Object? nextError;
   final List<ActivitySnapshot> activityResponses = <ActivitySnapshot>[];
   final List<SparseWeightSnapshot> weightResponses = <SparseWeightSnapshot>[];
@@ -44,8 +48,7 @@ class FakeRepository implements CcnRepository {
   }
 
   @override
-  Future<PresetResult> experimentResult() async =>
-      const GenericResult(totalSpikes: 12, averageWeight: 0.3);
+  Future<PresetResult> experimentResult() async => result;
 
   @override
   Future<void> free() async {

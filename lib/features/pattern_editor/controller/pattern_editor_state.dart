@@ -94,7 +94,7 @@ class PatternEditorState {
       seed: seed,
       network: SimulationConfig(seed: seed, neuronCount: 64),
       patterns: patterns.isEmpty ? [firstPattern] : patterns,
-      resultKind: PresetKind.generic,
+      resultKind: PresetKind.customPatternResponse,
       phases: [
         ExperimentPhase(
           id: 'custom_train',

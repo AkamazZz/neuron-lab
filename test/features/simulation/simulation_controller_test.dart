@@ -233,8 +233,68 @@ void main() {
     expect(controller.state.metrics.averageWeight, 0.35);
   });
 
+  test('custom pattern completion prefers Rust-owned custom result', () async {
+    final patternController = PatternEditorController()
+      ..toggleCell(2)
+      ..toggleCell(5)
+      ..setStrength(1.6)
+      ..setNoise(0.25);
+    final definition = patternController.state.toExperimentDefinition();
+    final repository = FakeRepository()
+      ..result = const CustomPatternResult(
+        patternLabel: 'Pattern A',
+        patternId: 'pattern_a',
+        neuronIds: [2, 5],
+        strength: 1.6,
+        dropout: 0.25,
+        targetActiveCount: 1,
+        targetSpikeCount: 9,
+        offPatternActiveCount: 3,
+        offPatternSpikeCount: 12,
+        responseSimilarity: 0.5,
+        totalSpikes: 44,
+        averageWeight: 0.35,
+        explanationFacts: ['computed by Rust'],
+      )
+      ..activityResponses.addAll([
+        const ActivitySnapshot(recentFiringRates: [0, 0, 0, 0, 0, 0]),
+        const ActivitySnapshot(recentFiringRates: [1, 1, 0, 1, 1, 0]),
+      ])
+      ..frameResponses.add(
+        const StepFrame(
+          startStep: 180,
+          steps: 1,
+          spikes: [
+            SpikeEvent(
+              stepOffset: 0,
+              absoluteStep: 181,
+              neuronId: 4,
+              membrane: 1,
+            ),
+          ],
+        ),
+      )
+      ..stateResponses.add(NativeExperimentState.completed);
+    final controller = SimulationController(
+      repository: repository,
+      initialExperiment: definition,
+    );
+
+    await controller.loadPreset(definition);
+    await controller.run();
+    await controller.stepTick();
+
+    final result = controller.state.result;
+    expect(result, isA<CustomPatternResult>());
+    final customResult = result! as CustomPatternResult;
+    expect(customResult.targetSpikeCount, 9);
+    expect(customResult.offPatternSpikeCount, 12);
+    expect(customResult.responseSimilarity, 0.5);
+    expect(customResult.explanationFacts, <String>['computed by Rust']);
+  });
+
   test(
-    'custom pattern completion exposes pattern-specific result evidence',
+    'custom pattern completion falls back when native result is generic',
     () async {
       final patternController = PatternEditorController()
         ..toggleCell(2)

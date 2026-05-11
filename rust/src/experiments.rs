@@ -30,6 +30,7 @@ pub enum ResultKind {
     Generic,
     PatternRecognition,
     MemoryEcho,
+    CustomPatternResponse,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -103,6 +104,7 @@ pub enum PresetResult {
     },
     PatternRecognition(PatternRecognitionResult),
     MemoryEcho(MemoryEchoResult),
+    CustomPatternResponse(CustomPatternResponseResult),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -121,6 +123,23 @@ pub struct MemoryEchoResult {
     pub decay_curve: Vec<f32>,
     pub remaining_active_neuron_count: u32,
     pub spontaneous_spike_rate: f32,
+    pub explanation_facts: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct CustomPatternResponseResult {
+    pub pattern_id: String,
+    pub pattern_label: String,
+    pub neuron_ids: Vec<u32>,
+    pub strength: f32,
+    pub dropout: f32,
+    pub target_active_count: u32,
+    pub target_spike_count: u32,
+    pub off_pattern_active_count: u32,
+    pub off_pattern_spike_count: u32,
+    pub response_similarity: f32,
+    pub total_spikes: u64,
+    pub average_weight: f32,
     pub explanation_facts: Vec<String>,
 }
 
@@ -486,6 +505,9 @@ impl ExperimentRunner {
                 PresetResult::PatternRecognition(self.pattern_recognition_result(definition))
             }
             ResultKind::MemoryEcho => PresetResult::MemoryEcho(self.memory_echo_result()),
+            ResultKind::CustomPatternResponse => PresetResult::CustomPatternResponse(
+                self.custom_pattern_response_result(definition, network),
+            ),
             ResultKind::Generic => PresetResult::Generic {
                 total_spikes: network.total_spikes,
                 average_weight: network.average_weight(),
@@ -579,6 +601,99 @@ impl ExperimentRunner {
             ],
         }
     }
+
+    fn custom_pattern_response_result(
+        &self,
+        definition: &ExperimentDefinition,
+        network: &Network,
+    ) -> CustomPatternResponseResult {
+        let mut explanation_facts = Vec::new();
+        let Some((probe_phase, pattern_id)) = first_constant_probe(definition) else {
+            explanation_facts.push(
+                "no constant probe phase was available for custom pattern response metrics"
+                    .to_string(),
+            );
+            return CustomPatternResponseResult::empty(network, explanation_facts);
+        };
+        let Some(pattern) = definition
+            .patterns
+            .iter()
+            .find(|pattern| pattern.id == pattern_id)
+        else {
+            explanation_facts.push(
+                "probe phase referenced a pattern that was not available in the definition"
+                    .to_string(),
+            );
+            return CustomPatternResponseResult::empty(network, explanation_facts);
+        };
+
+        let target_neurons = pattern
+            .activations
+            .iter()
+            .map(|activation| activation.neuron_id as u32)
+            .collect::<HashSet<_>>();
+        let frames = self.phase_frames.get(&probe_phase.id);
+        if frames.is_none_or(Vec::is_empty) {
+            explanation_facts.push(format!(
+                "probe phase {} had no retained Rust phase frames",
+                probe_phase.id
+            ));
+        }
+
+        let mut target_spike_count = 0;
+        let mut off_pattern_spike_count = 0;
+        let mut target_active = HashSet::new();
+        let mut off_pattern_active = HashSet::new();
+        for spike in frames
+            .into_iter()
+            .flat_map(|frames| frames.iter())
+            .flat_map(|frame| frame.spikes.iter())
+        {
+            if target_neurons.contains(&spike.neuron_id) {
+                target_spike_count += 1;
+                target_active.insert(spike.neuron_id);
+            } else {
+                off_pattern_spike_count += 1;
+                off_pattern_active.insert(spike.neuron_id);
+            }
+        }
+
+        let response_similarity = if target_neurons.is_empty() {
+            0.0
+        } else {
+            (target_active.len() as f32 / target_neurons.len() as f32).clamp(0.0, 1.0)
+        };
+        let strength = current_summary(pattern);
+        let dropout = train_dropout_for_pattern(definition, &pattern.id).unwrap_or(0.0);
+        explanation_facts.push(format!(
+            "probe response counted spikes from Rust phase frames for {}",
+            probe_phase.id
+        ));
+        explanation_facts.push(
+            "target response counts source pattern neurons; off-pattern response counts all other neurons"
+                .to_string(),
+        );
+        explanation_facts.push(format!(
+            "training dropout was read from schedule noise_probability for pattern {}",
+            pattern.id
+        ));
+
+        CustomPatternResponseResult {
+            pattern_id: pattern.id.clone(),
+            pattern_label: pattern.label.clone(),
+            neuron_ids: sorted_pattern_neurons(pattern),
+            strength,
+            dropout,
+            target_active_count: target_active.len() as u32,
+            target_spike_count,
+            off_pattern_active_count: off_pattern_active.len() as u32,
+            off_pattern_spike_count,
+            response_similarity,
+            total_spikes: network.total_spikes,
+            average_weight: network.average_weight(),
+            explanation_facts,
+        }
+    }
 }
 
 fn phase_spikes(frames: Option<&Vec<StepFrame>>, neuron_id: u32) -> u32 {
@@ -588,6 +703,79 @@ fn phase_spikes(frames: Option<&Vec<StepFrame>>, neuron_id: u32) -> u32 {
         .flat_map(|frame| frame.spikes.iter())
         .filter(|event| event.neuron_id == neuron_id)
         .count() as u32
+}
+
+impl CustomPatternResponseResult {
+    fn empty(network: &Network, explanation_facts: Vec<String>) -> Self {
+        Self {
+            pattern_id: String::new(),
+            pattern_label: "Unknown pattern".to_string(),
+            neuron_ids: Vec::new(),
+            strength: 0.0,
+            dropout: 0.0,
+            target_active_count: 0,
+            target_spike_count: 0,
+            off_pattern_active_count: 0,
+            off_pattern_spike_count: 0,
+            response_similarity: 0.0,
+            total_spikes: network.total_spikes,
+            average_weight: network.average_weight(),
+            explanation_facts,
+        }
+    }
+}
+
+fn first_constant_probe(definition: &ExperimentDefinition) -> Option<(&Phase, &str)> {
+    definition.phases.iter().find_map(|phase| {
+        if phase.phase_type != PhaseType::Probe {
+            return None;
+        }
+        match &phase.schedule {
+            PatternSchedule::Constant { pattern_id, .. } => Some((phase, pattern_id.as_str())),
+            _ => None,
+        }
+    })
+}
+
+fn train_dropout_for_pattern(definition: &ExperimentDefinition, pattern_id: &str) -> Option<f32> {
+    definition.phases.iter().find_map(|phase| {
+        if phase.phase_type != PhaseType::Train {
+            return None;
+        }
+        match &phase.schedule {
+            PatternSchedule::Constant {
+                pattern_id: phase_pattern_id,
+                noise_probability,
+            } if phase_pattern_id == pattern_id => Some(*noise_probability),
+            PatternSchedule::Sequence {
+                pattern_ids,
+                noise_probability,
+            } if pattern_ids.iter().any(|id| id == pattern_id) => Some(*noise_probability),
+            _ => None,
+        }
+    })
+}
+
+fn sorted_pattern_neurons(pattern: &Pattern) -> Vec<u32> {
+    let mut neuron_ids = pattern
+        .activations
+        .iter()
+        .map(|activation| activation.neuron_id as u32)
+        .collect::<Vec<_>>();
+    neuron_ids.sort_unstable();
+    neuron_ids
+}
+
+fn current_summary(pattern: &Pattern) -> f32 {
+    if pattern.activations.is_empty() {
+        return 0.0;
+    }
+    pattern
+        .activations
+        .iter()
+        .map(|activation| activation.current)
+        .sum::<f32>()
+        / pattern.activations.len() as f32
 }
 
 pub fn pattern_recognition_preset(seed: u64) -> ExperimentDefinition {

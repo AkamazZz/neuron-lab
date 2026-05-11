@@ -7,8 +7,8 @@ pub mod simulation;
 
 pub use crate::core::{LearningConfig, NoiseConfig, SimulationConfig, ValidationError};
 pub use crate::experiments::{
-    ExperimentDefinition, ExperimentRunner, ExperimentState, MemoryEchoResult,
-    PatternRecognitionResult, PresetResult,
+    CustomPatternResponseResult, ExperimentDefinition, ExperimentRunner, ExperimentState,
+    MemoryEchoResult, PatternRecognitionResult, PresetResult,
 };
 pub use crate::patterns::Pattern;
 pub use crate::simulation::{Network, StepFrame};
